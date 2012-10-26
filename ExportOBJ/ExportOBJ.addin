@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<RevitAddIns>
+  <AddIn Type="Command">
+    <Text>Revit to OBJ</Text>
+    <Description>Export model as OBJ file format</Description>
+    <Assembly>ExportOBJ.dll</Assembly>
+    <FullClassName>ExportOBJ.Command</FullClassName>
+    <ClientId>00885ae7-ac5c-42d4-8510-5681049c000b</ClientId>
+    <VendorId>TBC_</VendorId>
+    <VendorDescription>The Building Coder, http://thebuildingcoder.typepad.com</VendorDescription>
+  </AddIn>
+</RevitAddIns>
