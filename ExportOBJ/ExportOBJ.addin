@@ -6,7 +6,7 @@
     <Assembly>ExportOBJ.dll</Assembly>
     <FullClassName>ExportOBJ.Command</FullClassName>
     <ClientId>00885ae7-ac5c-42d4-8510-5681049c000b</ClientId>
-    <VendorId>TBC_</VendorId>
-    <VendorDescription>The Building Coder, http://thebuildingcoder.typepad.com</VendorDescription>
+    <VendorId>DGW</VendorId>
+    <VendorDescription></VendorDescription>
   </AddIn>
 </RevitAddIns>
