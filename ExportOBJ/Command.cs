@@ -19,7 +19,7 @@ namespace ExportOBJ
     [Transaction(TransactionMode.Automatic)]
     class Command : IFaceEmitter, IExternalCommand
     {
-        string _export_folder_name = "C:\\tmp\\export_data";
+        string _exportFolderName = "C:\\tmp\\export_data";
         //VertexLookupXyz _vertices;
         VertexLookupInt _vertices;
 
@@ -68,21 +68,17 @@ namespace ExportOBJ
         public int EmitFace(Face face, Autodesk.Revit.DB.Color color)
         {
             ++_faceCount;
- 
             Mesh mesh = face.Triangulate();
- 
             int n = mesh.NumTriangles;
- 
             Debug.Print( " {0} mesh triangles", n );
  
             for( int i = 0; i < n; ++i )
             {
                 ++_triangleCount;
- 
                 MeshTriangle t = mesh.get_Triangle( i );
- 
                 StoreTriangle( t );
             }
+
             return n;
         }
 
@@ -100,7 +96,6 @@ namespace ExportOBJ
 
             Debug.Assert(0 == n % 3,
               "expected a multiple of 3");
-
             Debug.Assert(_triangleCount.Equals(n / 3),
               "expected equal triangle count");
 
@@ -173,47 +168,48 @@ namespace ExportOBJ
         }
         #endregion // ExportTo: output the OBJ file
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="e"></param>
+        /// <param name="opt"></param>
+        /// <returns></returns>
         Solid GetSolid(Element e, Options opt)
         {
             Solid solid = null;
-
+            // access solid geometry of element
             GeometryElement geo = e.get_Geometry(opt);
 
             if (null != geo)
             {
                 if (e is FamilyInstance)
                 {
-                    geo = geo.GetTransformed(
-                      Transform.Identity);
+                    geo = geo.GetTransformed(Transform.Identity);
                 }
 
                 GeometryInstance inst = null;
-                //Transform t = Transform.Identity;
-
+                // iterate through multiple geometry objects
                 foreach (GeometryObject obj in geo)
                 {
                     solid = obj as Solid;
-
-                    if (null != solid
-                      && 0 < solid.Faces.Size)
+                    // if there is a solid with faces stop here
+                    if (null != solid && 0 < solid.Faces.Size)
                     {
                         break;
                     }
-
+                    // otherwise assign variable inst
                     inst = obj as GeometryInstance;
                 }
-
+                // if there is an instance def but no solid check the symbol
                 if (null == solid && null != inst)
                 {
                     geo = inst.GetSymbolGeometry();
-                    //t = inst.Transform;
-
+                    // iterate through geometry of symbol
                     foreach (GeometryObject obj in geo)
                     {
                         solid = obj as Solid;
-
-                        if (null != solid
-                          && 0 < solid.Faces.Size)
+                        // if there is a solid with faces stop here
+                        if (null != solid && 0 < solid.Faces.Size)
                         {
                             break;
                         }
@@ -223,45 +219,41 @@ namespace ExportOBJ
             return solid;
         }
 
-        int ExportElement(
-            IFaceEmitter emitter,
-            Element e,
-            Options opt)
+        /// <summary>
+        /// Recursive method that checks for groups and gets solid geometry from elements
+        /// </summary>
+        /// <param name="emitter"></param>
+        /// <param name="e"></param>
+        /// <param name="opt"></param>
+        /// <returns>int</returns>
+        int ExportElement(IFaceEmitter emitter, Element e, Options opt)
         {
             Group group = e as Group;
 
+            // if element successfully casts to a group then iterate through the group
             if (null != group)
             {
                 int n = 0;
 
-                foreach (ElementId id
-                  in group.GetMemberIds())
+                foreach (ElementId id in group.GetMemberIds())
                 {
-                    Element e2 = e.Document.GetElement(
-                      id);
-
+                    Element e2 = e.Document.GetElement(id);
                     n += ExportElement(emitter, e2, opt);
                 }
                 return n;
             }
 
-           //string desc = Util.ElementDescription(e);
-
+            // return if element has no category
             if (null == e.Category)
             {
-                //Debug.Print("Element '{0}' has no "
-                //  + "category.", desc);
-
                 return 0;
             }
 
+            // access the geometry object
             Solid solid = GetSolid(e, opt);
-
+            // return if no solid
             if (null == solid)
             {
-                //Debug.Print("Unable to access "
-                //  + "solid for element {0}.", desc);
-
                 return 0;
             }
 
@@ -270,22 +262,22 @@ namespace ExportOBJ
 
             foreach (Face face in solid.Faces)
             {
-                material = e.Document.GetElement(
-                  face.MaterialElementId) as Material;
-
-                color = (null == material)
-                  ? null
-                  : material.Color;
+                material = e.Document.GetElement(face.MaterialElementId) as Material;
+                // if no material, no color
+                color = (null == material) ? null : material.Color;
 
                 emitter.EmitFace(face, color);
             }
             return 1;
         }
 
-        void ExportElements(
-            IFaceEmitter emitter,
-            FilteredElementCollector collector,
-            Options opt)
+        /// <summary>
+        /// Helper function to export elements
+        /// </summary>
+        /// <param name="emitter"></param>
+        /// <param name="collector"></param>
+        /// <param name="opt"></param>
+        void ExportElements(IFaceEmitter emitter, FilteredElementCollector collector, Options opt)
         {
             int nElements = 0;
             int nSolids = 0;
@@ -293,31 +285,22 @@ namespace ExportOBJ
             foreach (Element e in collector)
             {
                 ++nElements;
-
                 nSolids += ExportElement(emitter, e, opt);
             }
 
             int nFaces = emitter.GetFaceCount();
             int nTriangles = emitter.GetTriangleCount();
             int nVertices = emitter.GetVertexCount();
-
-            //string msg = string.Format(
-            //  "{0} element{1} with {2} solid{3}, "
-            //  + "{4} face{5}, {6} triangle{7} and "
-            //  + "{8} vertice{9} exported.",
-            //  nElements, Util.PluralSuffix(nElements),
-            //  nSolids, Util.PluralSuffix(nSolids),
-            //  nFaces, Util.PluralSuffix(nFaces),
-            //  nTriangles, Util.PluralSuffix(nTriangles),
-            //  nVertices, Util.PluralSuffix(nVertices));
-
-            //InfoMsg(msg);
         }
 
-        public Result Execute(
-            ExternalCommandData commandData,
-            ref string message,
-            ElementSet elements)
+        /// <summary>
+        /// Program entry point
+        /// </summary>
+        /// <param name="commandData"></param>
+        /// <param name="message"></param>
+        /// <param name="elements"></param>
+        /// <returns>Result</returns>
+        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             try
             {
@@ -327,20 +310,16 @@ namespace ExportOBJ
                 Document doc = uidoc.Document;
 
                 // Determine elements to export
-
                 FilteredElementCollector collector = null;
 
                 // Access current selection
-
                 SelElementSet set = uidoc.Selection.Elements;
 
                 int n = set.Size;
 
                 if (0 < n)
                 {
-                    // If any elements were preselected,
-                    // export those to OBJ
-
+                    // If any elements were preselected, export those
                     ICollection<ElementId> ids = set
                       .Cast<Element>()
                       .Select<Element, ElementId>(e => e.Id)
@@ -350,37 +329,30 @@ namespace ExportOBJ
                 }
                 else
                 {
-                    // If nothing was preselected, export 
-                    // all model elements to OBJ
-
+                    // If nothing was preselected, export everything
                     collector = new FilteredElementCollector(doc);
                 }
 
                 collector.WhereElementIsNotElementType()
                     .WhereElementIsViewIndependent();
 
-                if (null == _export_folder_name)
+                if (null == _exportFolderName)
                 {
-                    _export_folder_name = Path.GetTempPath();
+                    _exportFolderName = Path.GetTempPath();
                 }
 
                 string filename = null;
 
-                if (!FileSelect(_export_folder_name,
+                if (!FileSelect(_exportFolderName,
                   out filename))
                 {
                     return Result.Cancelled;
                 }
 
-                _export_folder_name
-                  = Path.GetDirectoryName(filename);
-
+                _exportFolderName = Path.GetDirectoryName(filename);
                 Command exporter = new Command();
-
                 Options opt = app.Create.NewGeometryOptions();
-
                 ExportElements(exporter, collector, opt);
-
                 exporter.ExportTo(filename);
 
                 return Result.Succeeded;
@@ -392,17 +364,11 @@ namespace ExportOBJ
             }
         }
 
-        static bool FileSelect(
-            string folder,
-            out string filename)
+        static bool FileSelect(string folder, out string filename)
         {
             SaveFileDialog dlg = new SaveFileDialog();
             dlg.Title = "Save file as";
-            //dlg.CheckFileExists = true;
-            //dlg.CheckPathExists = true;
-            //dlg.RestoreDirectory = true;
             dlg.InitialDirectory = folder;
-            //dlg.Filter = ".txt Files (*.txt)|*.txt";
             bool rc = (DialogResult.OK == dlg.ShowDialog());
             filename = dlg.FileName;
             return rc;
