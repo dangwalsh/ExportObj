@@ -22,13 +22,13 @@ namespace ExportOBJ
 
             public int GetHashCode(PointInt p)
             {
-                return (p.X.ToString()
+                return (  p.X.ToString()
                   + "," + p.Y.ToString()
                   + "," + p.Z.ToString())
                   .GetHashCode();
             }
         }
-        #endregion // PointIntEqualityComparer
+        #endregion
 
         public VertexLookupInt()
             : base(new PointIntEqualityComparer())
@@ -41,9 +41,7 @@ namespace ExportOBJ
         /// </summary>
         public int AddVertex(PointInt p)
         {
-            return ContainsKey(p)
-              ? this[p]
-              : this[p] = Count;
+            return ContainsKey(p) ? this[p] : this[p] = Count;
         }
     }
 }

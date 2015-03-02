@@ -111,22 +111,20 @@ namespace ExportOBJ
         /// <summary>
         /// Obsolete: emit an XYZ vertex.
         /// </summary>
-        static void EmitVertex(StreamWriter s, XYZ p)
-        {
-            //s.WriteLine("v {0} {1} {2}",
-            //  Util.RealString(p.X),
-            //  Util.RealString(p.Y),
-            //  Util.RealString(p.Z));
-        }
+        //static void EmitVertex(StreamWriter s, XYZ p)
+        //{
+        //    s.WriteLine("v {0} {1} {2}",
+        //      Util.RealString(p.X),
+        //      Util.RealString(p.Y),
+        //      Util.RealString(p.Z));
+        //}
 
         /// <summary>
         /// Emit a vertex to OBJ. The first vertex listed 
         /// in the file has index 1, and subsequent ones
         /// are numbered sequentially.
         /// </summary>
-        static void EmitVertex(
-          StreamWriter s,
-          PointInt p)
+        static void EmitVertex(StreamWriter s, PointInt p)
         {
             s.WriteLine("v {0} {1} {2}", p.X, p.Y, p.Z);
         }
@@ -134,16 +132,15 @@ namespace ExportOBJ
         /// <summary>
         /// Emit an OBJ triangular face.
         /// </summary>
-        static void EmitFacet(
-          StreamWriter s,
-          int i,
-          int j,
-          int k)
+        static void EmitFacet(StreamWriter s, int i, int j, int k)
         {
-            s.WriteLine("f {0} {1} {2}",
-              i + 1, j + 1, k + 1);
+            s.WriteLine("f {0} {1} {2}", i + 1, j + 1, k + 1);
         }
 
+        /// <summary>
+        /// Output the file
+        /// </summary>
+        /// <param name="path"></param>
         public void ExportTo(string path)
         {
             using (StreamWriter s = new StreamWriter(path))
@@ -166,10 +163,10 @@ namespace ExportOBJ
                 }
             }
         }
-        #endregion // ExportTo: output the OBJ file
+        #endregion 
 
         /// <summary>
-        /// 
+        /// Retrieves solid geometry from Revit element
         /// </summary>
         /// <param name="e"></param>
         /// <param name="opt"></param>
@@ -333,7 +330,8 @@ namespace ExportOBJ
                     collector = new FilteredElementCollector(doc);
                 }
 
-                collector.WhereElementIsNotElementType()
+                collector
+                    .WhereElementIsNotElementType()
                     .WhereElementIsViewIndependent();
 
                 if (null == _exportFolderName)
@@ -343,8 +341,7 @@ namespace ExportOBJ
 
                 string filename = null;
 
-                if (!FileSelect(_exportFolderName,
-                  out filename))
+                if (!FileOpen(_exportFolderName, out filename))
                 {
                     return Result.Cancelled;
                 }
@@ -364,7 +361,13 @@ namespace ExportOBJ
             }
         }
 
-        static bool FileSelect(string folder, out string filename)
+        /// <summary>
+        /// Sets the file path for the output
+        /// </summary>
+        /// <param name="folder"></param>
+        /// <param name="filename"></param>
+        /// <returns></returns>
+        static bool FileOpen(string folder, out string filename)
         {
             SaveFileDialog dlg = new SaveFileDialog();
             dlg.Title = "Save file as";
