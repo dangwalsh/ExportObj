@@ -12,7 +12,7 @@ namespace ExportOBJ
         /// <summary>
         /// Emit a face with a specified colour.
         /// </summary>
-        int EmitFace(Face face, Color color);
+        int EmitFace(Face face, Color color, Transform transform);
 
         /// <summary>
         /// Return the final triangle count 

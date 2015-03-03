@@ -20,7 +20,7 @@ namespace ExportOBJ
     class Command : IFaceEmitter, IExternalCommand
     {
         string _exportFolderName = "C:\\tmp\\export_data";
-        Transform _transform = null;
+
         //VertexLookupXyz _vertices;
         VertexLookupInt _vertices;
 
@@ -54,14 +54,15 @@ namespace ExportOBJ
         /// Add the vertices of the given triangle to our
         /// vertex lookup dictionary and emit a triangle.
         /// </summary>
-        void StoreTriangle(MeshTriangle triangle)
+        void StoreTriangle(MeshTriangle triangle, Transform transform)
         {
             for (int i = 0; i < 3; ++i)
             {
                 XYZ p = null;
-                if (_transform != null)
+
+                if (transform != null)
                 {
-                    p = _transform.OfPoint(triangle.get_Vertex(i));
+                    p = transform.OfPoint(triangle.get_Vertex(i));
                 }
                 else
                 {
@@ -76,7 +77,7 @@ namespace ExportOBJ
         /// Emit a Revit geometry Face object and 
         /// return the number of resulting triangles.
         /// </summary>
-        public int EmitFace(Face face, Autodesk.Revit.DB.Color color)
+        public int EmitFace(Face face, Autodesk.Revit.DB.Color color, Transform transform)
         {
             ++_faceCount;
             Mesh mesh = face.Triangulate();
@@ -87,7 +88,7 @@ namespace ExportOBJ
             {
                 ++_triangleCount;
                 MeshTriangle t = mesh.get_Triangle( i );
-                StoreTriangle( t );
+                StoreTriangle( t, transform );
             }
 
             return n;
@@ -234,7 +235,7 @@ namespace ExportOBJ
         /// <param name="e"></param>
         /// <param name="opt"></param>
         /// <returns>int</returns>
-        int ExportElement(IFaceEmitter emitter, Element e, Options opt)
+        int ExportElement(IFaceEmitter emitter, Element e, Options opt, Transform transform)
         {
             Group group = e as Group;
 
@@ -246,7 +247,7 @@ namespace ExportOBJ
                 foreach (ElementId id in group.GetMemberIds())
                 {
                     Element e2 = e.Document.GetElement(id);
-                    n += ExportElement(emitter, e2, opt);
+                    n += ExportElement(emitter, e2, opt, transform);
                 }
                 return n;
             }
@@ -274,7 +275,7 @@ namespace ExportOBJ
                 // if no material, no color
                 color = (null == material) ? null : material.Color;
 
-                emitter.EmitFace(face, color);
+                emitter.EmitFace(face, color, transform);
             }
             return 1;
         }
@@ -285,7 +286,7 @@ namespace ExportOBJ
         /// <param name="emitter"></param>
         /// <param name="collector"></param>
         /// <param name="opt"></param>
-        void ExportElements(IFaceEmitter emitter, FilteredElementCollector collector, Options opt)
+        void ExportElements(IFaceEmitter emitter, FilteredElementCollector collector, Options opt, Transform transform)
         {
             int nElements = 0;
             int nSolids = 0;
@@ -293,7 +294,7 @@ namespace ExportOBJ
             foreach (Element e in collector)
             {
                 ++nElements;
-                nSolids += ExportElement(emitter, e, opt);
+                nSolids += ExportElement(emitter, e, opt, transform);
             }
 
             int nFaces = emitter.GetFaceCount();
@@ -316,6 +317,7 @@ namespace ExportOBJ
                 UIDocument uidoc = uiapp.ActiveUIDocument;
                 Autodesk.Revit.ApplicationServices.Application app = uiapp.Application;
                 Document doc = uidoc.Document;
+                Transform transform = null;
 
                 FilteredElementCollector links = new FilteredElementCollector(doc);
                 IList<Element> elems = links
@@ -323,13 +325,13 @@ namespace ExportOBJ
                     .OfClass(typeof(RevitLinkInstance))
                     .ToElements();
 
-                CollectAndExport(doc, app);
+                CollectAndExport(doc, app, transform);
 
                 foreach (RevitLinkInstance link in links)
                 {
-                    this._transform = link.GetTotalTransform();
-                    CollectAndExport(link.GetLinkDocument(), app);
-                    this._transform = null;
+                    transform = link.GetTotalTransform();
+                    CollectAndExport(link.GetLinkDocument(), app, transform);
+
                     // Determine elements to export
                     //FilteredElementCollector collector = null;
 
@@ -388,33 +390,6 @@ namespace ExportOBJ
         }
 
 
-        private void CollectAndExport(Document doc, Autodesk.Revit.ApplicationServices.Application app)
-        {
-            FilteredElementCollector collector = new FilteredElementCollector(doc);
-
-            collector
-                .WhereElementIsNotElementType()
-                .WhereElementIsViewIndependent();
-
-            if (null == _exportFolderName)
-            {
-                _exportFolderName = Path.GetTempPath();
-            }
-
-            string filename = null;
-
-            if (!FileOpen(_exportFolderName, out filename))
-            {
-                throw new Exception();
-            }
-
-            _exportFolderName = Path.GetDirectoryName(filename);
-            Command exporter = new Command();
-            Options opt = app.Create.NewGeometryOptions();
-            ExportElements(exporter, collector, opt);
-            exporter.ExportTo(filename);
-        }
-
         private void CollectAndExport(Document doc, Autodesk.Revit.ApplicationServices.Application app, Transform transform)
         {
             FilteredElementCollector collector = new FilteredElementCollector(doc);
@@ -438,9 +413,10 @@ namespace ExportOBJ
             _exportFolderName = Path.GetDirectoryName(filename);
             Command exporter = new Command();
             Options opt = app.Create.NewGeometryOptions();
-            ExportElements(exporter, collector, opt);
+            ExportElements(exporter, collector, opt, transform);
             exporter.ExportTo(filename);
         }
+
 
         /// <summary>
         /// Sets the file path for the output
