@@ -20,6 +20,7 @@ namespace ExportOBJ
     class Command : IFaceEmitter, IExternalCommand
     {
         string _exportFolderName = "C:\\tmp\\export_data";
+        Transform _transform = null;
         //VertexLookupXyz _vertices;
         VertexLookupInt _vertices;
 
@@ -39,6 +40,8 @@ namespace ExportOBJ
         /// </summary>
         int _triangleCount;
 
+        
+
         public Command()
         {
             _faceCount = 0;
@@ -55,7 +58,15 @@ namespace ExportOBJ
         {
             for (int i = 0; i < 3; ++i)
             {
-                XYZ p = triangle.get_Vertex(i);
+                XYZ p = null;
+                if (_transform != null)
+                {
+                    p = _transform.OfPoint(triangle.get_Vertex(i));
+                }
+                else
+                {
+                    p = triangle.get_Vertex(i);
+                }
                 PointInt q = new PointInt(p);
                 _triangles.Add(_vertices.AddVertex(q));
             }
@@ -306,52 +317,67 @@ namespace ExportOBJ
                 Autodesk.Revit.ApplicationServices.Application app = uiapp.Application;
                 Document doc = uidoc.Document;
 
-                // Determine elements to export
-                FilteredElementCollector collector = null;
+                FilteredElementCollector links = new FilteredElementCollector(doc);
+                IList<Element> elems = links
+                    .OfCategory(BuiltInCategory.OST_RvtLinks)
+                    .OfClass(typeof(RevitLinkInstance))
+                    .ToElements();
 
-                // Access current selection
-                SelElementSet set = uidoc.Selection.Elements;
+                CollectAndExport(doc, app);
 
-                int n = set.Size;
-
-                if (0 < n)
+                foreach (RevitLinkInstance link in links)
                 {
-                    // If any elements were preselected, export those
-                    ICollection<ElementId> ids = set
-                      .Cast<Element>()
-                      .Select<Element, ElementId>(e => e.Id)
-                      .ToArray<ElementId>();
+                    this._transform = link.GetTotalTransform();
+                    CollectAndExport(link.GetLinkDocument(), app);
+                    this._transform = null;
+                    // Determine elements to export
+                    //FilteredElementCollector collector = null;
 
-                    collector = new FilteredElementCollector(doc, ids);
+                    // Access current selection
+                    //SelElementSet set = uidoc.Selection.Elements;
+
+                    //int n = set.Size;
+
+                    //if (0 < n)
+                    //{
+                    //    // If any elements were preselected, export those
+                    //    ICollection<ElementId> ids = set
+                    //      .Cast<Element>()
+                    //      .Select<Element, ElementId>(e => e.Id)
+                    //      .ToArray<ElementId>();
+
+                    //    collector = new FilteredElementCollector(link.GetLinkDocument(), ids);
+                    //}
+                    //else
+                    //{
+                    //    // If nothing was preselected, export everything
+                    //    collector = new FilteredElementCollector(link.GetLinkDocument());
+                    //}
+                    //collector = new FilteredElementCollector(link.GetLinkDocument());
+                            
+                    //collector
+                    //    .WhereElementIsNotElementType()
+                    //    .WhereElementIsViewIndependent();
+
+                    //if (null == _exportFolderName)
+                    //{
+                    //    _exportFolderName = Path.GetTempPath();
+                    //}
+
+                    //string filename = null;
+
+                    //if (!FileOpen(_exportFolderName, out filename))
+                    //{
+                    //    return Result.Cancelled;
+                    //}
+
+                    //_exportFolderName = Path.GetDirectoryName(filename);
+                    //Command exporter = new Command();
+                    //Options opt = app.Create.NewGeometryOptions();
+                    //ExportElements(exporter, collector, opt);
+                    //exporter.ExportTo(filename);
                 }
-                else
-                {
-                    // If nothing was preselected, export everything
-                    collector = new FilteredElementCollector(doc);
-                }
-
-                collector
-                    .WhereElementIsNotElementType()
-                    .WhereElementIsViewIndependent();
-
-                if (null == _exportFolderName)
-                {
-                    _exportFolderName = Path.GetTempPath();
-                }
-
-                string filename = null;
-
-                if (!FileOpen(_exportFolderName, out filename))
-                {
-                    return Result.Cancelled;
-                }
-
-                _exportFolderName = Path.GetDirectoryName(filename);
-                Command exporter = new Command();
-                Options opt = app.Create.NewGeometryOptions();
-                ExportElements(exporter, collector, opt);
-                exporter.ExportTo(filename);
-
+   
                 return Result.Succeeded;
             }
             catch (Exception ex)
@@ -359,6 +385,61 @@ namespace ExportOBJ
                 message = ex.Message;
                 return Result.Failed;
             }
+        }
+
+
+        private void CollectAndExport(Document doc, Autodesk.Revit.ApplicationServices.Application app)
+        {
+            FilteredElementCollector collector = new FilteredElementCollector(doc);
+
+            collector
+                .WhereElementIsNotElementType()
+                .WhereElementIsViewIndependent();
+
+            if (null == _exportFolderName)
+            {
+                _exportFolderName = Path.GetTempPath();
+            }
+
+            string filename = null;
+
+            if (!FileOpen(_exportFolderName, out filename))
+            {
+                throw new Exception();
+            }
+
+            _exportFolderName = Path.GetDirectoryName(filename);
+            Command exporter = new Command();
+            Options opt = app.Create.NewGeometryOptions();
+            ExportElements(exporter, collector, opt);
+            exporter.ExportTo(filename);
+        }
+
+        private void CollectAndExport(Document doc, Autodesk.Revit.ApplicationServices.Application app, Transform transform)
+        {
+            FilteredElementCollector collector = new FilteredElementCollector(doc);
+
+            collector
+                .WhereElementIsNotElementType()
+                .WhereElementIsViewIndependent();
+
+            if (null == _exportFolderName)
+            {
+                _exportFolderName = Path.GetTempPath();
+            }
+
+            string filename = null;
+
+            if (!FileOpen(_exportFolderName, out filename))
+            {
+                throw new Exception();
+            }
+
+            _exportFolderName = Path.GetDirectoryName(filename);
+            Command exporter = new Command();
+            Options opt = app.Create.NewGeometryOptions();
+            ExportElements(exporter, collector, opt);
+            exporter.ExportTo(filename);
         }
 
         /// <summary>
