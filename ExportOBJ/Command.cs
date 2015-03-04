@@ -40,29 +40,50 @@ namespace ExportOBJ
         /// </summary>
         int _triangleCount;
 
-        
+        /// <summary>
+        /// Reference to transform vector
+        /// </summary>
+        Transform _transform;
 
+        /// <summary>
+        /// Default constructor for Command class
+        /// </summary>
         public Command()
         {
             _faceCount = 0;
             _triangleCount = 0;
             _vertices = new VertexLookupInt();
             _triangles = new List<int>();
+            _transform = null;
+        }
+
+        /// <summary>
+        /// Overloaded constructor for command class,
+        /// takes one argument
+        /// </summary>
+        /// <param name="t"></param>
+        public Command(Transform t)
+        {
+            _faceCount = 0;
+            _triangleCount = 0;
+            _vertices = new VertexLookupInt();
+            _triangles = new List<int>();
+            _transform = t;
         }
 
         /// <summary>
         /// Add the vertices of the given triangle to our
         /// vertex lookup dictionary and emit a triangle.
         /// </summary>
-        void StoreTriangle(MeshTriangle triangle, Transform transform)
+        void StoreTriangle(MeshTriangle triangle)
         {
             for (int i = 0; i < 3; ++i)
             {
                 XYZ p = null;
 
-                if (transform != null)
+                if (_transform != null)
                 {
-                    p = transform.OfPoint(triangle.get_Vertex(i));
+                    p = _transform.OfPoint(triangle.get_Vertex(i));
                 }
                 else
                 {
@@ -77,7 +98,7 @@ namespace ExportOBJ
         /// Emit a Revit geometry Face object and 
         /// return the number of resulting triangles.
         /// </summary>
-        public int EmitFace(Face face, Autodesk.Revit.DB.Color color, Transform transform)
+        public int EmitFace(Face face, Autodesk.Revit.DB.Color color)
         {
             ++_faceCount;
             Mesh mesh = face.Triangulate();
@@ -88,12 +109,16 @@ namespace ExportOBJ
             {
                 ++_triangleCount;
                 MeshTriangle t = mesh.get_Triangle( i );
-                StoreTriangle( t, transform );
+                StoreTriangle( t );
             }
 
             return n;
         }
 
+        /// <summary>
+        /// Accessor for _faceCount data member
+        /// </summary>
+        /// <returns></returns>
         public int GetFaceCount()
         {
             return _faceCount;
@@ -114,6 +139,10 @@ namespace ExportOBJ
             return _triangleCount;
         }
 
+        /// <summary>
+        /// Accessor for size of _vertices dictionary
+        /// </summary>
+        /// <returns></returns>
         public int GetVertexCount()
         {
             return _vertices.Count;
@@ -235,7 +264,7 @@ namespace ExportOBJ
         /// <param name="e"></param>
         /// <param name="opt"></param>
         /// <returns>int</returns>
-        int ExportElement(IFaceEmitter emitter, Element e, Options opt, Transform transform)
+        int ExportElement(IFaceEmitter emitter, Element e, Options opt)
         {
             Group group = e as Group;
 
@@ -247,7 +276,7 @@ namespace ExportOBJ
                 foreach (ElementId id in group.GetMemberIds())
                 {
                     Element e2 = e.Document.GetElement(id);
-                    n += ExportElement(emitter, e2, opt, transform);
+                    n += ExportElement(emitter, e2, opt);
                 }
                 return n;
             }
@@ -275,7 +304,7 @@ namespace ExportOBJ
                 // if no material, no color
                 color = (null == material) ? null : material.Color;
 
-                emitter.EmitFace(face, color, transform);
+                emitter.EmitFace(face, color);
             }
             return 1;
         }
@@ -286,7 +315,7 @@ namespace ExportOBJ
         /// <param name="emitter"></param>
         /// <param name="collector"></param>
         /// <param name="opt"></param>
-        void ExportElements(IFaceEmitter emitter, FilteredElementCollector collector, Options opt, Transform transform)
+        void ExportElements(IFaceEmitter emitter, FilteredElementCollector collector, Options opt)
         {
             int nElements = 0;
             int nSolids = 0;
@@ -294,7 +323,7 @@ namespace ExportOBJ
             foreach (Element e in collector)
             {
                 ++nElements;
-                nSolids += ExportElement(emitter, e, opt, transform);
+                nSolids += ExportElement(emitter, e, opt);
             }
 
             int nFaces = emitter.GetFaceCount();
@@ -325,59 +354,12 @@ namespace ExportOBJ
                     .OfClass(typeof(RevitLinkInstance))
                     .ToElements();
 
-                CollectAndExport(doc, app, transform);
+                CollectAndExport(uidoc, doc, app, transform);
 
                 foreach (RevitLinkInstance link in links)
                 {
                     transform = link.GetTotalTransform();
-                    CollectAndExport(link.GetLinkDocument(), app, transform);
-
-                    // Determine elements to export
-                    //FilteredElementCollector collector = null;
-
-                    // Access current selection
-                    //SelElementSet set = uidoc.Selection.Elements;
-
-                    //int n = set.Size;
-
-                    //if (0 < n)
-                    //{
-                    //    // If any elements were preselected, export those
-                    //    ICollection<ElementId> ids = set
-                    //      .Cast<Element>()
-                    //      .Select<Element, ElementId>(e => e.Id)
-                    //      .ToArray<ElementId>();
-
-                    //    collector = new FilteredElementCollector(link.GetLinkDocument(), ids);
-                    //}
-                    //else
-                    //{
-                    //    // If nothing was preselected, export everything
-                    //    collector = new FilteredElementCollector(link.GetLinkDocument());
-                    //}
-                    //collector = new FilteredElementCollector(link.GetLinkDocument());
-                            
-                    //collector
-                    //    .WhereElementIsNotElementType()
-                    //    .WhereElementIsViewIndependent();
-
-                    //if (null == _exportFolderName)
-                    //{
-                    //    _exportFolderName = Path.GetTempPath();
-                    //}
-
-                    //string filename = null;
-
-                    //if (!FileOpen(_exportFolderName, out filename))
-                    //{
-                    //    return Result.Cancelled;
-                    //}
-
-                    //_exportFolderName = Path.GetDirectoryName(filename);
-                    //Command exporter = new Command();
-                    //Options opt = app.Create.NewGeometryOptions();
-                    //ExportElements(exporter, collector, opt);
-                    //exporter.ExportTo(filename);
+                    CollectAndExport(uidoc, link.GetLinkDocument(), app, transform);
                 }
    
                 return Result.Succeeded;
@@ -390,9 +372,32 @@ namespace ExportOBJ
         }
 
 
-        private void CollectAndExport(Document doc, Autodesk.Revit.ApplicationServices.Application app, Transform transform)
+        private void CollectAndExport(UIDocument uidoc, Document doc, Autodesk.Revit.ApplicationServices.Application app, Transform transform)
         {
-            FilteredElementCollector collector = new FilteredElementCollector(doc);
+            
+            // Determine elements to export
+            FilteredElementCollector collector = null;
+
+            // Access current selection
+            SelElementSet set = uidoc.Selection.Elements;
+
+            int n = set.Size;
+
+            if (0 < n)
+            {
+                // If any elements were preselected, export those
+                ICollection<ElementId> ids = set
+                  .Cast<Element>()
+                  .Select<Element, ElementId>(e => e.Id)
+                  .ToArray<ElementId>();
+
+                collector = new FilteredElementCollector(doc, ids);
+            }
+            else
+            {
+                // If nothing was preselected, export everything
+                collector = new FilteredElementCollector(doc);
+            }
 
             collector
                 .WhereElementIsNotElementType()
@@ -411,9 +416,9 @@ namespace ExportOBJ
             }
 
             _exportFolderName = Path.GetDirectoryName(filename);
-            Command exporter = new Command();
+            Command exporter = new Command(transform);//new Command();
             Options opt = app.Create.NewGeometryOptions();
-            ExportElements(exporter, collector, opt, transform);
+            ExportElements(exporter, collector, opt);
             exporter.ExportTo(filename);
         }
 
